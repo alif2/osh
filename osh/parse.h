@@ -1,27 +1,22 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
-/* 
- * File:   parse.h
- * Author: adam
- *
- * Created on February 16, 2017, 4:08 AM
- */
-
 #ifndef PARSE_H
 #define PARSE_H
 
-class parse {
-public:
-    parse();
-    parse(const parse& orig);
-    virtual ~parse();
-private:
-
-};
+namespace osh {
+    int trim(char *line, size_t *length);
+    int allocateBuffer(void **buffer, size_t *currentSize, size_t newSize, size_t datasize);
+    int allocateAndCopyString(char** destination, char *source) ;
+    int isCommandBreaker(char ch);
+    int allocateNewCommand(Command **command) ;
+    int deleteCommand(Command *command);
+    void DumpCommand(Command* command);
+    int AddCommand(Command **head, Command *add);
+    void DumpCommandChain(Command *head);
+    int GetComandChainLength(Command *head);
+    int DeleteCommandChain(Command *head);
+    int GetCommandBreaker(char **line, SymbolType *symbol);
+    int GetNextCommandString(char **line, char **commandString, size_t *commandBufferLength, size_t *commandLength);
+    int ParseCommand(Command **command, char *commandLine, SymbolType symtype);
+    int GetCommandChain(Command **head);
+}
 
 #endif /* PARSE_H */
-

@@ -4,6 +4,9 @@
     <logicalFolder name="HeaderFiles"
                    displayName="Header Files"
                    projectFiles="true">
+      <itemPath>command.h</itemPath>
+      <itemPath>osh_const.h</itemPath>
+      <itemPath>osh_enum.h</itemPath>
       <itemPath>parse.h</itemPath>
     </logicalFolder>
     <logicalFolder name="ResourceFiles"
@@ -13,6 +16,7 @@
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
                    projectFiles="true">
+      <itemPath>osh.cpp</itemPath>
       <itemPath>parse.cpp</itemPath>
     </logicalFolder>
     <logicalFolder name="TestFiles"
@@ -40,6 +44,14 @@
           <commandlineTool>g++</commandlineTool>
         </linkerTool>
       </compileType>
+      <item path="command.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="osh.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="osh_const.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="osh_enum.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="parse.cpp" ex="false" tool="0" flavor2="0">
       </item>
       <item path="parse.h" ex="false" tool="3" flavor2="0">
@@ -65,6 +77,14 @@
           <developmentMode>5</developmentMode>
         </asmTool>
       </compileType>
+      <item path="command.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="osh.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="osh_const.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="osh_enum.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="parse.cpp" ex="false" tool="0" flavor2="0">
       </item>
       <item path="parse.h" ex="false" tool="3" flavor2="0">

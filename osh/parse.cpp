@@ -17,37 +17,12 @@
 #include <stdlib.h>
 #include <limits.h>
 
-const int status_success = 0;
-const int status_failure = 1;
-
-// Symbol type represents the command separator
-typedef enum SymbolType {
-    RedirectIn,             // <
-    RedirectOut,            // >
-    RedirectOutAppend,      // >>
-    ExecuteOnSuccess,       // && - exec on success
-    ExecuteOnFailure,       // || - exec on failure 
-    Pipe,                   // | 
-    Null,                   // end of string (null character encountered)
-    NewLine,                // end of command due to new line
-    Semicolon,              // ;
-} SymbolType;
+#include "command.h"
+#include "osh_const.h"
+#include "osh_enum.h"
+namespace osh {
 
 
-// Command contains the parsed command. These structures are chained in a 
-// doubly linked list 
-typedef struct Command {
-    char *file;             // file to execute 
-    char **arglist;         // argument list to executable
-    SymbolType symbolType;  // command separator 
-
-    int inFileHandle;       // file handle to input stream 
-    int outFileHandle;      // file handle to output stream
-    int errorFileHandle;    // file handle to error stream 
-    int status;             // exit code of the command
-
-    struct Command *next, *prev;   
-} Command;
 
 
 /* some utility functions */
@@ -59,12 +34,14 @@ int trim(char *line, size_t *length)
 
     // trim from back
     i = *length - 1; 
-    while(isspace(line[i])) i--;
+    while(isspace(line[i]))
+        i--;
     line[i+1] = '\0';
 
     // chomp the spaces in front
     read = write = line;
-    while (isspace(*read)) read++;
+    while (isspace(*read)) 
+        read++;
 
     // move the characters 
     for(  ; *write = *read; read++, write++) ;
@@ -106,40 +83,45 @@ exit_1:
     return status;
 }
 
-// wrapper around strncpy. allocates buffer and copies string
+// wrapper around strncpy. alloates buffer and copies string
 int allocateAndCopyString(char** destination, char *source) 
 {
-    int status = status_success;
-    char *temp = NULL;
-    size_t buffersize = 0;
-    size_t newsize = strlen(source) + 1;
+	int status = status_success;
+	char *temp = NULL;
+	size_t buffersize = 0;
+	size_t newsize = strlen(source) + 1;
 
-    if(status_failure == (status = allocateBuffer((void**)&temp, &buffersize, newsize+1, sizeof(char)))) {
-        *destination = NULL;
-	goto exit1;
-    }
+	if(status_failure == 
+		(status = allocateBuffer((void**)&temp, &buffersize, newsize+1, sizeof(char)))) {
+		*destination = NULL;
+		goto exit1;
+	}
 	
-    strncpy(temp, source, newsize);
-    temp[newsize] = '\0';
+	strncpy(temp, source, newsize);
+	temp[newsize] = '\0';
 	
-    *destination = temp;
+	*destination = temp;
 	
 exit1:
-    return status;
+	return status;
 }
 
-// list of Symbols that separate command
-int isCommandBreaker(char ch)
+// list of Symbols that seperate command
+bool isCommandBreaker(char ch)
 {
-    return ch == '|' || ch == ';' || ch == '\n' || ch == '<' || ch == '>' || ch == '&' || ch == '\0';
+    if(ch == '|' || ch == ';' || ch == '\n' ||
+            ch == '<' || ch == '>' || ch == '&' || ch == '\0')
+        return true;
+
+    return false;
 }
 
 
 /*
-// allocate a new command structure and initialize it with default values
+// allocate a new commnad structure and initialize it with default values
 //
 // return value :  
-//      status_success -      success, and command points to the newly allocated
+//      statu_succes -      success, and command points to the newly allocated
 //                          memory
 //      status_failure -    failed to allocate memory, command points to NULL
 //
@@ -157,11 +139,13 @@ int allocateNewCommand(Command **command)
         goto exit1;
     }
 
-    temp->file = '\0';
+    temp->file = NULL;
     temp->next = NULL;
     temp->prev = NULL;
-    temp->inFileHandle = -1;
-    temp->outFileHandle = -1;
+    temp->inFilePtr = stdin;
+    temp->outFilePtr = stdout;
+    temp->inFileHandle = STDIN_FILENO;
+    temp->outFileHandle = STDOUT_FILENO;
     temp->status = status_success;
 
     *command = temp;
@@ -196,15 +180,19 @@ int deleteCommand(Command *command)
     }
 
     // free argument list
-    for(i=0, arg = temp->arglist; arg[i] != NULL; i++) {
-        free(arg[i]);
-    }
+	if(NULL != temp->arglist) {
+		for(i=0, arg = temp->arglist; arg[i] != NULL; i++) {
+			free(arg[i]);
+		}
+		
+		free(arg);
+	}
 
     // free the arglist and command
-    free(arg);
     free(command);
 
     return status;
+
 }
 
 /*
@@ -214,17 +202,18 @@ void DumpCommand(Command* command)
 {
     int i = 0;
 
-    printf("----------------------------------------------------\n");
-    printf("file : %s\n", command->file);
-    printf("arglist : "); 
-	
-    for(i = 0; NULL != command->arglist[i]; i++)
-    {
-        printf("%s \n", command->arglist[i]);
-    }
+	printf("----------------------------------------------------\n");
+	printf("file : %s\n", command->file);
+	printf("arglist : "); 
 
+	if(NULL != command->arglist) {
+		for(i = 0; NULL != command->arglist[i]; i++) {
+			printf("%s \n", command->arglist[i]);
+		}
+	}
+	
     printf("\n Token : %d\n", command->symbolType);
-    printf("---------------------------------------------------\n");
+	printf("---------------------------------------------------\n");
 }
 
 /*
@@ -260,7 +249,6 @@ int AddCommand(Command **head, Command *add)
 */
 void DumpCommandChain(Command *head)
 {
-    printf("here\n");
     while (head != NULL) {
         DumpCommand(head);
         head = head->next;
@@ -306,7 +294,8 @@ int DeleteCommandChain(Command *head) {
 //
 //  notes : 
 */
-int GetCommandBreaker(char **line, SymbolType *symbol)
+int GetCommandBreaker(char **line, 
+                        SymbolType *symbol)
 {
     int status = status_success;
     char *temp = *line;
@@ -378,7 +367,7 @@ int GetCommandBreaker(char **line, SymbolType *symbol)
 
 /*
 //  reads the input string, and returns the substring that contains one command.
-//  this would be sequence of characters that are separated by any symbols (|, >, >> etc)
+//  this would be sequence of characters that are seperated by any symbols (|, >, >> etc)
 //
 //  return value:
 //      status_success -    commandString points to the copy of the substring that contains the command,
@@ -390,20 +379,24 @@ int GetCommandBreaker(char **line, SymbolType *symbol)
 //      memory is allocated by the function by using realloc (allocateBuffer). In case of failure, 
 //      commandString is not changed from the value set by allocateBuffer
 */
-int GetNextCommandString(char **line, char **commandString, size_t *commandBufferLength, size_t *commandLength)
+int GetNextCommandString(char **line, 
+                char **commandString, 
+                size_t *commandBufferLength, 
+                size_t *commandLength)
 {
     int status = status_success;
     char *read = *line;
     size_t length = 0;
 
     // read the command line till we get a symbol. 
-    while(!isCommandBreaker(*read)) {
+    while(false == isCommandBreaker(*read)) {
         read++;
         length += 1;
     }
 
     // allocate buffer using length
-    if(status_failure == (status = allocateBuffer((void**)commandString, commandBufferLength, length +1, sizeof(char)))) {
+    if(status_failure == (status = allocateBuffer
+                    ((void**)commandString, commandBufferLength, length +1, sizeof(char)))) {
         *commandLength = 0;
         goto exit1;
     }
@@ -450,60 +443,82 @@ int ParseCommand(Command **command, char *commandLine, SymbolType symtype)
    int i=0; 
    int j=0;
    
-    // break string into tokens (space separated)
-    if(status_failure == (status = allocateBuffer((void**)&temp, &tempbufferlength, commandLineLength + 1, sizeof(char)))) {
-        *command = NULL;
-        goto exit1;
-    }
-    strncpy(temp, commandLine, commandLineLength);
-    temp[commandLineLength] = '\0';
+	if(0 == commandLineLength) {  // null command
+		file = NULL;
+		arglist = NULL;
+		symtype = symtype;
+	} else {
+	   // break string into tokens (space seperated)
+		if(status_failure == (status = allocateBuffer((void**)&temp, 
+			&tempbufferlength, commandLineLength + 1, sizeof(char)))) {
+			*command = NULL;
+			goto exit1;
+		}
+		strncpy(temp, commandLine, commandLineLength);
+		temp[commandLineLength] = '\0';
+		
+		trim(temp, &commandLineLength);
+		
+		// get filename
+		if(NULL == (token = strtok_r(temp, delimiter, &saveptr1))) {
+			goto exit1;
+		}
 
-	// get filename
-    if(NULL == (token = strtok_r(temp, delimiter, &saveptr1))) {
-	goto exit1;
-    }
+		// update filename
+		if(status_failure == (status = allocateAndCopyString(&file, token))) {
+			goto exit1;
+		}
+	 
+		j=0;
+		if(NULL  == (temparglist = (char**) realloc(arglist, sizeof(char*) * (j+2)))) {
+			goto exit1;
+		}
+		arglist = temparglist;
+			
+		temparg = NULL;
+		if(status_failure == (status = allocateAndCopyString(&temparg, token))) {
+			goto exit1;
+		}
+		
+		arglist[j] = temparg;
+		arglist[j+1] = NULL; 
+		j++;
+		
+		// read tokens and create argv
+		while(true) {
+			if(NULL  == (temparglist = (char**) realloc(arglist, sizeof(char*) * (j+2)))) {
+				goto exit1;
+			}
+			arglist = temparglist;
 
-    // update filename
-    if(status_failure == (status = allocateAndCopyString(&file, token))) {
-	goto exit1;
-    }
- 
-    j=0;
-    // read tokens and create argv
-    while(1) {
-        if(NULL  == (temparglist = (char**) realloc(arglist, sizeof(char*) * (j+2)))) {
-            goto exit1;
-        }
-    
-        arglist = temparglist;
+			temp = NULL;
+			if(NULL == (token = strtok_r(temp, delimiter, &saveptr1))) {
+				arglist[j] = NULL;
+				break;
+			}
+		
+			temparg = NULL;
+			if(status_failure == (status = allocateAndCopyString(&temparg, token))) {
+				goto exit1;
+			}
 
-        temp = NULL;
-        if(NULL == (token = strtok_r(temp, delimiter, &saveptr1))) {
-            arglist[j] = NULL;
-            break;
-        }
-	
-        temparg = NULL;
-        if(status_failure == (status = allocateAndCopyString(&temparg, token))) {
-            goto exit1;
-        }
-
-        arglist[j] = temparg;
-        arglist[j+1] = '\0';
-        j++;
-    }
-
-    // allocate memory for command
-    if(*command == NULL) {
-        if(status_failure == (status = allocateNewCommand(command)))
-	{
-            *command = NULL;
-            goto exit1;
+			arglist[j] = temparg;
+			arglist[j+1] = NULL; 
+			j++;
+		}
 	}
-    }
+
+	// allocate memory for command
+	if(*command == NULL) {
+		if(status_failure == (status = allocateNewCommand(command)))
+		{
+			*command = NULL;
+			goto exit1;
+		}
+	}
 
     // update command
-    commandtemp = *command;
+	commandtemp = *command;
     (*command)->file = file;
     (*command)->arglist = arglist;
     (*command)->symbolType = symtype;
@@ -542,17 +557,21 @@ int GetCommandChain(Command **head)
         
         headCommand = NULL;
         tempCommand = NULL;
-        while(1) {
-            if(status_failure == (status = GetNextCommandString
+        while(true) {
+            if(status_failure == 
+				(status = GetNextCommandString
 				(&line, &commandString, &commandBufferLength, &commandLength)))
                 break; // error
-
+				
             if(status_failure == (status = GetCommandBreaker(&line, &symtype)))
                 break; // error
 
-            if(0 == commandLength && (symtype != Null || symtype != NewLine)) 
-                break; // error
-
+			trim(commandString, &commandLength);
+			
+            if(0 == commandLength && (symtype != Null || symtype != NewLine)) {
+				// break; // we will create a null command and add to chain
+			}
+			
             // parse the command string
             tempCommand = NULL;
             if(status_failure == 
@@ -562,10 +581,12 @@ int GetCommandChain(Command **head)
                 goto exit1;
             }
 
+			//printf("Get command length : (%d)(%d)%s\n", symtype, commandLength, line);
+			//fflush(stdout);
             AddCommand(&headCommand, tempCommand);
 
             // exit We are done parsing the line
-            if(symtype == '\0' || symtype == '\n')
+            if(NewLine == symtype || Null == symtype)
                 break;  
         }
     }
@@ -576,18 +597,5 @@ exit1:
     return status_success;
 }
 
-int main(int argc, char *argv[])
-{
-    // Command structure
-    Command *head = NULL;
-
-    // get the command chain   
-    if(status_failure != GetCommandChain(&head)) {
-        DumpCommandChain(head);
-        DeleteCommandChain(head);
-    }
-
-    return status_success;
 }
-
 #endif
