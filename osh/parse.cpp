@@ -22,9 +22,6 @@
 #include "osh_enum.h"
 namespace osh {
 
-
-
-
 /* some utility functions */
 // trim the line of white spaces
 int trim(char *line, size_t *length)
