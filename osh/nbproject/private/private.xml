@@ -7,9 +7,10 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/home/adam/NetBeansProjects/osh/Makefile</file>
-            <file>file:/home/adam/NetBeansProjects/osh/parse.h</file>
-            <file>file:/home/adam/NetBeansProjects/osh/parse.cpp</file>
+            <file>file:/home/adam/git/osh/osh/command.h</file>
+            <file>file:/home/adam/git/osh/osh/osh_enum.h</file>
+            <file>file:/home/adam/git/osh/osh/osh.cpp</file>
+            <file>file:/home/adam/git/osh/osh/parse.cpp</file>
         </group>
     </open-files>
 </project-private>

@@ -13,30 +13,58 @@ using namespace osh;
 int main(int argc, char** argv) {
     // Command structure
     Command *head = NULL;
+
+    int i = getopt(argc, argv, "t");
+    switch(i) {
+        case 't':
+            break;
+        default:
+            printf("osh> ");
+            break;
+    }
     
     // Bounded input loop to avoid infinite forks
-    for(int i = 0; i < 25; i++) { 
+    for(int i = 0; i < 25; i++) {
         int cmdcode = GetCommandChain(&head);
 
         if(cmdcode != status_success) {
             fprintf(stderr, "Error reading input\n");
             exit(1);
         }
-        
+
         // Ignore blank lines
         if(head->file == NULL || strlen(head->file) < 1) {
             continue;
         }
-        
+
         // Exit command signals end of input
         if(strcmp(head->file, "exit") == 0) {
             exit(0);
         }
-        
-        // Bounded parse loop to avoid infinite loop
+
+        // Bounded parse loop to avoid infinite loops
         int j = 0;
         int fd[2];
-        while(head != NULL && j < 25) {    
+        while(head != NULL && j < 25) {
+            int pipe_in = 0;
+
+            if(head->symbolType == RedirectOut || head->symbolType == RedirectIn || head->symbolType == RedirectOutAppend || head->symbolType == Pipe) {
+                if(head->next == NULL || head->next->file == NULL) {
+                    printf("Invalid NULL command\n");
+                    break;
+                }
+
+                if((head->symbolType == RedirectOut || head->symbolType == RedirectOutAppend) && head->next->symbolType == Pipe) {
+                    printf("Ambiguous output redirect.\n");
+                    break;
+                }
+
+                if(head->symbolType == Pipe && head->next->symbolType == RedirectIn) {
+                    printf("Ambiguous input redirect.\n");
+                    break;
+                }
+            }
+
             if(head->prev != NULL && head->prev->symbolType != (long int) NULL) {
                 // Current process executes only on success of previous one
                 if(head->prev->symbolType == ExecuteOnSuccess) {
@@ -52,6 +80,11 @@ int main(int argc, char** argv) {
                         head->status = head->prev->status;
                         break;
                     }
+                }
+
+                // Save pipe input file handle
+                else if(head->prev->symbolType == Pipe) {
+                    pipe_in = fd[0];
                 }
             }
 
@@ -70,18 +103,32 @@ int main(int argc, char** argv) {
 
             // Child process
             else if(cpid == 0) {
-                if(head->prev != NULL && head->prev->symbolType == Pipe) {
-                    if(dup2(fd[0], STDIN_FILENO) < 0) exit(1);
-                    close(fd[0]);
+                // 2+ for avoiding stdin/out
+                if(pipe_in > 1) {
+                    if(dup2(pipe_in, STDIN_FILENO) < 0) exit(1);
+                    close(pipe_in);
                 }
 
                 if(head->symbolType != Null) {
                     char* redir = head->next->file;
 
+
                     if(head->symbolType == RedirectIn) {
                         head->inFileHandle = open(redir, O_RDONLY);
                         if(dup2(head->inFileHandle, STDIN_FILENO) < 0) exit(1);
                         close(head->inFileHandle);
+
+                        if(head->next != NULL && head->next->symbolType == RedirectOut) {
+                            head->next->outFileHandle = open(head->next->next->file, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+                            if(dup2(head->next->outFileHandle, STDOUT_FILENO) < 0) exit(1);
+                            close(head->next->outFileHandle);
+                        }
+
+                        if(head->next != NULL && head->next->symbolType == RedirectOutAppend) {
+                            head->next->outFileHandle = open(head->next->next->file, O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+                            if(dup2(head->next->outFileHandle, STDOUT_FILENO) < 0) exit(1);
+                            close(head->next->outFileHandle);
+                        }
                     }
 
                     else if(head->symbolType == RedirectOut) {
@@ -117,9 +164,14 @@ int main(int argc, char** argv) {
             }
 
             // Advance past filename for redirect tokens to avoid execution
-            if(head->symbolType == RedirectOut ||
-               head->symbolType == RedirectIn ||
-               head->symbolType == RedirectOutAppend) {
+            if(head->symbolType == RedirectIn) {
+                if(head->next->symbolType == RedirectOut || head->next->symbolType == RedirectOutAppend) {
+                    head = head->next;
+                }
+                head = head->next;
+            }
+
+            else if(head->symbolType == RedirectOut || head->symbolType == RedirectOutAppend) {
 
                 head = head->next;
             }
