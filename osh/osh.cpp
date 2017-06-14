@@ -1,12 +1,12 @@
 #include <cstdlib>
-#include <sys/wait.h>
 #include <fcntl.h>
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "command.h"
-#include "parse.h"
 #include "osh_const.h"
+#include "parse.h"
 
 using namespace osh;
 
@@ -48,13 +48,17 @@ int main(int argc, char** argv) {
         while(head != NULL && j < 25) {
             int pipe_in = 0;
 
-            if(head->symbolType == RedirectOut || head->symbolType == RedirectIn || head->symbolType == RedirectOutAppend || head->symbolType == Pipe) {
+            if(head->symbolType == RedirectOut ||
+               head->symbolType == RedirectIn || 
+               head->symbolType == RedirectOutAppend || 
+               head->symbolType == Pipe) {
                 if(head->next == NULL || head->next->file == NULL) {
                     printf("Invalid NULL command\n");
                     break;
                 }
 
-                if((head->symbolType == RedirectOut || head->symbolType == RedirectOutAppend) && head->next->symbolType == Pipe) {
+                if((head->symbolType == RedirectOut || head->symbolType == RedirectOutAppend) && 
+                    head->next->symbolType == Pipe) {
                     printf("Ambiguous output redirect.\n");
                     break;
                 }
@@ -101,7 +105,7 @@ int main(int argc, char** argv) {
                 exit(1);
             }
 
-            // Child process
+            // Child process creates file handles and executes requested process
             else if(cpid == 0) {
                 // 2+ for avoiding stdin/out
                 if(pipe_in > 1) {
@@ -112,33 +116,40 @@ int main(int argc, char** argv) {
                 if(head->symbolType != Null) {
                     char* redir = head->next->file;
 
-
                     if(head->symbolType == RedirectIn) {
                         head->inFileHandle = open(redir, O_RDONLY);
                         if(dup2(head->inFileHandle, STDIN_FILENO) < 0) exit(1);
                         close(head->inFileHandle);
 
                         if(head->next != NULL && head->next->symbolType == RedirectOut) {
-                            head->next->outFileHandle = open(head->next->next->file, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+                            head->next->outFileHandle = open(head->next->next->file, 
+                                O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+                                
                             if(dup2(head->next->outFileHandle, STDOUT_FILENO) < 0) exit(1);
                             close(head->next->outFileHandle);
                         }
 
                         if(head->next != NULL && head->next->symbolType == RedirectOutAppend) {
-                            head->next->outFileHandle = open(head->next->next->file, O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+                            head->next->outFileHandle = open(head->next->next->file,
+                                O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+                            
                             if(dup2(head->next->outFileHandle, STDOUT_FILENO) < 0) exit(1);
                             close(head->next->outFileHandle);
                         }
                     }
 
                     else if(head->symbolType == RedirectOut) {
-                        head->outFileHandle = open(redir, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+                        head->outFileHandle = open(redir,
+                        O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+
                         if(dup2(head->outFileHandle, STDOUT_FILENO) < 0) exit(1);
                         close(head->outFileHandle);
                     }
 
                     else if(head->symbolType == RedirectOutAppend) {
-                        head->outFileHandle = open(redir, O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+                        head->outFileHandle = open(redir,
+                            O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+
                         if(dup2(head->outFileHandle, STDOUT_FILENO) < 0) exit(1);
                         close(head->outFileHandle);
                     }
@@ -150,11 +161,13 @@ int main(int argc, char** argv) {
                 }
 
                 execvp(head->file, head->arglist);
+                
+                // Successful execution will not return
                 fprintf(stderr, "Exec Failed\n");
                 exit(1);
             }
 
-            // Parent process
+            // Parent process waits for child to complete
             else {
                 int status;
                 wait(&status);
@@ -168,11 +181,11 @@ int main(int argc, char** argv) {
                 if(head->next->symbolType == RedirectOut || head->next->symbolType == RedirectOutAppend) {
                     head = head->next;
                 }
+
                 head = head->next;
             }
 
             else if(head->symbolType == RedirectOut || head->symbolType == RedirectOutAppend) {
-
                 head = head->next;
             }
 
